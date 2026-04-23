@@ -15,6 +15,7 @@ const initialTicket = {
     location: '',
     priority: 'MEDIUM',
     description: '',
+    imageAttachments: [],
 };
 
 const TicketsPage = () => {
@@ -23,6 +24,8 @@ const TicketsPage = () => {
     const [formData, setFormData] = useState(initialTicket);
     const [commentInputs, setCommentInputs] = useState({});
     const [feedback, setFeedback] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [uploading, setUploading] = useState(false);
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
 
     const counts = useMemo(() => {
@@ -57,11 +60,85 @@ const TicketsPage = () => {
         init();
     }, []);
 
+    const handleFileSelect = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length > 3) {
+            setFeedback('Maximum 3 files allowed');
+            return;
+        }
+        
+        const validFiles = files.filter(file => {
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            
+            if (!validTypes.includes(file.type)) {
+                setFeedback(`Invalid file type: ${file.name}. Only JPG, PNG, GIF allowed`);
+                return false;
+            }
+            
+            if (file.size > maxSize) {
+                setFeedback(`File too large: ${file.name}. Maximum 5MB allowed`);
+                return false;
+            }
+            
+            return true;
+        });
+        
+        setSelectedFiles(validFiles);
+    };
+
+    const uploadImages = async () => {
+        if (selectedFiles.length === 0) return [];
+        
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            
+            const response = await fetch('/api/tickets/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Upload failed');
+            }
+            
+            const result = await response.json();
+            return result.files.split(',');
+        } catch (error) {
+            setFeedback(`Upload failed: ${error.message}`);
+            return [];
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const submitTicket = async (e) => {
         e.preventDefault();
         try {
-            await createTicket(formData);
+            let imageAttachments = [];
+            
+            // Upload images first if any selected
+            if (selectedFiles.length > 0) {
+                imageAttachments = await uploadImages();
+                if (imageAttachments.length === 0) {
+                    return; // Upload failed
+                }
+            }
+            
+            // Create ticket with image attachments
+            const ticketData = {
+                ...formData,
+                imageAttachments
+            };
+            
+            await createTicket(ticketData);
             setFormData(initialTicket);
+            setSelectedFiles([]);
             setFeedback('Ticket created successfully.');
             await loadTickets(user);
         } catch (error) {
@@ -170,7 +247,47 @@ const TicketsPage = () => {
                             onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                             required
                         />
-                        <button className="w-full rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold py-2">
+                        
+                        {/* Image Upload Section */}
+                        <div className="space-y-2">
+                            <label className="block text-sm text-slate-400">
+                                Attach Images (max 3 files, 5MB each)
+                            </label>
+                            <input
+                                type="file"
+                                multiple
+                                accept="image/jpeg,image/jpg,image/png,image/gif"
+                                onChange={handleFileSelect}
+                                className="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-2 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400"
+                            />
+                            
+                            {selectedFiles.length > 0 && (
+                                <div className="space-y-1">
+                                    <p className="text-xs text-slate-400">Selected files:</p>
+                                    {selectedFiles.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between text-xs bg-slate-800 rounded px-2 py-1">
+                                            <span>{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== index))}
+                                                className="text-red-400 hover:text-red-300"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            {uploading && (
+                                <div className="text-xs text-cyan-400">Uploading images...</div>
+                            )}
+                        </div>
+                        
+                        <button 
+                            className="w-full rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold py-2 disabled:opacity-50"
+                            disabled={uploading}
+                        >
                             Submit Ticket
                         </button>
                     </form>
@@ -200,6 +317,28 @@ const TicketsPage = () => {
                                                 {ticket.id} | {ticket.location} | {ticket.createdAt}
                                             </p>
                                             <p className="text-sm mt-1 text-slate-300">{ticket.description}</p>
+                                            
+                                            {/* Image Attachments Display */}
+                                            {ticket.imageAttachments && ticket.imageAttachments.length > 0 && (
+                                                <div className="mt-2">
+                                                    <p className="text-xs text-slate-400 mb-1">Attached Images:</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {ticket.imageAttachments.map((image, index) => (
+                                                            <div key={index} className="relative group">
+                                                                <img
+                                                                    src={`/api/tickets/images/${image}`}
+                                                                    alt={`Attachment ${index + 1}`}
+                                                                    className="w-16 h-16 object-cover rounded border border-slate-700 cursor-pointer hover:border-cyan-400 transition-colors"
+                                                                    onClick={() => window.open(`/api/tickets/images/${image}`, '_blank')}
+                                                                />
+                                                                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer">
+                                                                    <span className="text-white text-xs">View</span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="text-right">
                                             <span className="inline-block rounded-full bg-cyan-900/40 border border-cyan-700 px-2 py-0.5 text-xs text-cyan-200">
