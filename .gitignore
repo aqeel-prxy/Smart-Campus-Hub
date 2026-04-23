@@ -1,0 +1,10 @@
+backend/node_modules/
+frontend/node_modules/
+**/node_modules/
+**/dist/
+**/build/
+**/.env
+**/.env.*
+backend/backend.env
+backend/src/main/resources/secret.properties
+*.log
