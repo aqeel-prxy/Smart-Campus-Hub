@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Use Vite's environment variables for the base URL
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Axios instance for backend requests
 const API = axios.create({ baseURL: BASE_URL, withCredentials: true });
@@ -11,6 +11,17 @@ export const getNotifications = (userId) => API.get(`/notifications?userId=${use
 export const markNotificationRead = (id) => API.patch(`/notifications/${id}/read`);
 export const getMyTickets = () => fetchFromAPI('/tickets/my');
 export const getAllTickets = () => fetchFromAPI('/tickets');
+export const uploadTicketImages = async (formData) => {
+    try {
+        const response = await API.post('/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data; // expects { fileNames: [...] }
+    } catch (error) {
+        console.error('Failed to upload images:', error);
+        throw error;
+    }
+};
 export const createTicket = (payload) =>
     fetchFromAPI('/tickets', {
         method: 'POST',
