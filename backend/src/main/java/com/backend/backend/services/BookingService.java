@@ -5,8 +5,10 @@ import com.backend.backend.models.Booking;
 import com.backend.backend.models.BookingStatus;
 import com.backend.backend.models.Notification;
 import com.backend.backend.models.Resource;
+import com.backend.backend.models.User;
 import com.backend.backend.repositories.BookingRepository;
 import com.backend.backend.repositories.ResourceRepository;
+import com.backend.backend.repositories.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -26,15 +28,18 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final ResourceRepository resourceRepository;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     public BookingService(
         BookingRepository bookingRepository,
         ResourceRepository resourceRepository,
-        NotificationService notificationService
+        NotificationService notificationService,
+        UserRepository userRepository
     ) {
         this.bookingRepository = bookingRepository;
         this.resourceRepository = resourceRepository;
         this.notificationService = notificationService;
+        this.userRepository = userRepository;
     }
 
     public Booking createBooking(BookingCreateRequest request, Authentication authentication) {
@@ -75,7 +80,26 @@ public class BookingService {
         booking.setCreatedAt(Instant.now());
         booking.setUpdatedAt(Instant.now());
 
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        createNotification(
+            requesterEmail,
+            "BOOKING_SUBMITTED",
+            "Your booking request for " + saved.getResourceName() + " on " + saved.getBookingDate() + " was submitted."
+        );
+
+        List<User> admins = userRepository.findByRolesContains("ROLE_ADMIN");
+        for (User admin : admins) {
+            if (admin.getEmail() != null && !admin.getEmail().isBlank()) {
+                createNotification(
+                    admin.getEmail(),
+                    "BOOKING_REVIEW_REQUIRED",
+                    "New booking request from " + requesterEmail + " for " + saved.getResourceName() + "."
+                );
+            }
+        }
+
+        return saved;
     }
 
     public List<Booking> getMyBookings(Authentication authentication) {
