@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// REST controller for managing booking operations
 @RestController
 @RequestMapping("/api/bookings")
 public class BookingController {
