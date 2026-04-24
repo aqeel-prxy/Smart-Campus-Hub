@@ -1,6 +1,7 @@
 package com.backend.backend.controllers;
 
 import com.backend.backend.annotation.RateLimitAuth;
+import com.backend.backend.dto.AuthRequest;
 import com.backend.backend.models.User;
 import com.backend.backend.repositories.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -79,6 +80,26 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("success", true, "message", "User registered successfully!"));
     }
 
+    // Create default admin endpoint
+    @PostMapping("/create-admin")
+    public ResponseEntity<?> createDefaultAdmin() {
+        try {
+            if (!userRepository.existsByEmail("admin@campus.edu")) {
+                Set<String> adminRoles = new HashSet<>();
+                adminRoles.add("ROLE_USER");
+                adminRoles.add("ROLE_ADMIN");
+                
+                User admin = new User("admin@campus.edu", passwordEncoder.encode("admin123"), adminRoles);
+                userRepository.save(admin);
+                return ResponseEntity.ok(Map.of("success", true, "message", "Default admin user created successfully!"));
+            } else {
+                return ResponseEntity.ok(Map.of("success", true, "message", "Admin user already exists!"));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Failed to create admin: " + e.getMessage()));
+        }
+    }
+
     // 3. UNIFIED USER CHECK (Handles both Google and Standard Logins)
     @GetMapping("/user")
     public Map<String, Object> getUser(Authentication authentication) {
@@ -101,23 +122,17 @@ public class AuthController {
             name = email.split("@")[0]; // Use the first part of the email as a display name
         }
 
+        Set<String> authorities = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+
+        String role = authorities.contains("ROLE_ADMIN") ? "admin" : "user";
+
         return Map.of(
                 "authenticated", true,
-                "name", name,
                 "email", email,
-                "roles", authentication.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toList())
+                "roles", authorities,
+                "role", role
         );
-    }
-
-    // Simple DTO to catch incoming JSON requests from React
-    public static class AuthRequest {
-        private String email;
-        private String password;
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
     }
 }
