@@ -25,6 +25,32 @@ const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24; // 1 day
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
 app.use(express.json());
 
+const fs = require('fs');
+const multer = require('multer');
+
+// Setup upload directory
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Serve static files from uploads
+app.use('/uploads', express.static(uploadDir));
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + '-' + file.originalname.replace(/\s+/g, '-'));
+    }
+});
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
+
 // Connect to MongoDB
 let dbConnected = false;
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/smart-campus';
@@ -349,6 +375,19 @@ const requireAuth = (req, res, next) => {
     next();
 };
 
+app.post('/api/upload', requireAuth, upload.array('images', 3), (req, res) => {
+    try {
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ message: 'No files uploaded.' });
+        }
+        const fileNames = req.files.map(file => file.filename);
+        return res.status(200).json({ fileNames });
+    } catch (error) {
+        console.error('Upload error:', error);
+        return res.status(500).json({ message: 'Error uploading files.' });
+    }
+});
+
 const requireAdmin = (req, res, next) => {
     if (!req.user?.roles?.includes('ROLE_ADMIN')) {
         return res.status(403).json({ message: 'Admin role required.' });
@@ -584,7 +623,10 @@ app.post('/api/tickets', requireAuth, async (req, res) => {
 
 app.get('/api/tickets/my', requireAuth, async (req, res) => {
     const tickets = await listTickets();
-    return res.json(tickets.filter((t) => t.createdByEmail.toLowerCase() === req.user.email.toLowerCase()));
+    return res.json(tickets.filter((t) => 
+        t.createdByEmail.toLowerCase() === req.user.email.toLowerCase() || 
+        (t.assignedToEmail || '').toLowerCase() === req.user.email.toLowerCase()
+    ));
 });
 
 app.get('/api/tickets', requireAuth, async (req, res) => {
