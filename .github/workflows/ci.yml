@@ -1,0 +1,60 @@
+name: Smart Campus Hub CI/CD
+
+# This tells GitHub to run the script whenever code is pushed to the main branch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # Job 1: Test the Spring Boot Backend
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      
+    - name: Set up JDK 21
+      uses: actions/setup-java@v3
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build and Test Spring Boot
+      # Inject fake environment variables just for the GitHub server to pass the test
+      env:
+        SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/dummy_db
+        SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: dummy-id
+        SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: dummy-secret
+      run: ./backend/mvnw -B clean test --file backend/pom.xml
+
+# Job 2: Test the React Frontend & Run Playwright
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install Dependencies and Build
+      working-directory: ./frontend
+      run: |
+        npm ci
+        npm run build
+
+    - name: Install Playwright Browsers
+      working-directory: ./frontend
+      run: npx playwright install --with-deps
+
+    - name: Run Playwright Tests
+      working-directory: ./frontend
+      # Playwright will automatically run 'npm run dev', wait for port 5173, and run tests!
+      run: npx playwright test
