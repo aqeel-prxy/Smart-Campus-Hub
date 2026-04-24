@@ -33,6 +33,7 @@ public class BookingController {
         this.qrCodeService = qrCodeService;
     }
 
+    // Create a new booking request
     @PostMapping
     public ResponseEntity<Booking> createBooking(@Valid @RequestBody BookingCreateRequest request, Authentication authentication) {
         Booking saved = bookingService.createBooking(request, authentication);
