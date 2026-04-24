@@ -72,7 +72,14 @@ public class TicketService {
     }
 
     public List<Ticket> getMyTickets(Authentication authentication) {
-        return ticketRepository.findByCreatedByEmailOrderByCreatedAtDesc(getCurrentUserEmail(authentication));
+        String email = getCurrentUserEmail(authentication);
+        List<Ticket> created = ticketRepository.findByCreatedByEmailOrderByCreatedAtDesc(email);
+        List<Ticket> assigned = ticketRepository.findByAssignedToEmailOrderByCreatedAtDesc(email);
+        java.util.Set<Ticket> all = new java.util.HashSet<>(created);
+        all.addAll(assigned);
+        return all.stream()
+            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+            .collect(java.util.stream.Collectors.toList());
     }
 
     public List<Ticket> getAllTickets(Authentication authentication) {
@@ -83,11 +90,21 @@ public class TicketService {
     }
 
     public Ticket updateStatus(String ticketId, TicketStatusUpdateRequest request, Authentication authentication) {
-        requireAdmin(authentication);
         Ticket ticket = ticketRepository.findById(ticketId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ticket not found."));
+
+        String email = getCurrentUserEmail(authentication);
+        boolean isAdmin = hasRole(authentication, "ROLE_ADMIN");
+        boolean isTechnician = email.equalsIgnoreCase(ticket.getAssignedToEmail());
+
+        if (!isAdmin && !isTechnician) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admin or assigned technician can update status.");
+        }
+
         ticket.setStatus(request.getStatus());
-        ticket.setAssignedToEmail(request.getAssignedToEmail());
+        if (isAdmin) {
+            ticket.setAssignedToEmail(request.getAssignedToEmail());
+        }
         ticket.setResolutionNotes(request.getResolutionNotes());
         ticket.setRejectionReason(request.getRejectionReason());
         ticket.setUpdatedAt(Instant.now());
