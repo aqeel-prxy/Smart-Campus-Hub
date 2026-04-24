@@ -58,6 +58,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getAllBookings(fromDate, toDate, status, authentication));
     }
 
+    // Admin can approve or reject a booking with a reason
     @PatchMapping("/{id}/decision")
     public ResponseEntity<Booking> decideBooking(
         @PathVariable String id,
