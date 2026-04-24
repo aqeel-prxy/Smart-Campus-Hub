@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import javax.annotation.PostConstruct;
 
 @Service
 public class TicketService {
@@ -38,6 +39,10 @@ public class TicketService {
     public TicketService(TicketRepository ticketRepository, NotificationService notificationService) {
         this.ticketRepository = ticketRepository;
         this.notificationService = notificationService;
+    }
+    
+    @PostConstruct
+    private void init() {
         createUploadDirectoryIfNotExists();
     }
     

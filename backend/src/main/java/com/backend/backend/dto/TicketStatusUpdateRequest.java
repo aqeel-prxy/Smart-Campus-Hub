@@ -1,7 +1,7 @@
 package com.backend.backend.dto;
 
 import com.backend.backend.models.TicketStatus;
-import jakarta.validation.constraints.NotNull;
+import javax.validation.constraints.NotNull;
 
 public class TicketStatusUpdateRequest {
     @NotNull(message = "Status is required.")

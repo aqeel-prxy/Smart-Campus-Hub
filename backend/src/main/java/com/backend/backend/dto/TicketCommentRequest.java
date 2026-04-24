@@ -1,6 +1,6 @@
 package com.backend.backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import javax.validation.constraints.NotBlank;
 
 public class TicketCommentRequest {
     @NotBlank(message = "Comment text is required.")

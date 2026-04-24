@@ -46,13 +46,13 @@ public class SecurityConfig {
             .securityContext(context -> context.securityContextRepository(securityContextRepository()))
             .authorizeHttpRequests(auth -> auth
                 // Allow anyone (even logged out phones) to read resource data
-                .requestMatchers("/api/health/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/resources/**").permitAll()
-                .requestMatchers("/api/auth/**").permitAll() // Allow access to login, register, and user check
-                .requestMatchers("/api/bookings/**").authenticated()
-                .requestMatchers("/api/tickets/**").authenticated()
-                .requestMatchers("/api/notifications/**").authenticated()
-                .requestMatchers("/api/resources/**").hasRole("ADMIN")
+                .antMatchers("/api/health/**").permitAll()
+                .antMatchers(HttpMethod.GET, "/api/resources/**").permitAll()
+                .antMatchers("/api/auth/**").permitAll() // Allow access to login, register, and user check
+                .antMatchers("/api/bookings/**").authenticated()
+                .antMatchers("/api/tickets/**").authenticated()
+                .antMatchers("/api/notifications/**").authenticated()
+                .antMatchers("/api/resources/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2

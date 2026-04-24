@@ -7,8 +7,36 @@ export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/a
 const API = axios.create({ baseURL: BASE_URL, withCredentials: true });
 
 // Exported functions
-export const getNotifications = (userId) => API.get(`/notifications?userId=${userId}`);
+export const getNotifications = (userId) => {
+    if (userId) {
+        return API.get(`/notifications?userId=${encodeURIComponent(userId)}`);
+    }
+    return API.get('/notifications');
+};
 export const markNotificationRead = (id) => API.patch(`/notifications/${id}/read`);
+export const markAllNotificationsRead = () => API.patch('/notifications/read-all');
+export const getNotificationPreferences = () => API.get('/notifications/preferences');
+export const updateNotificationPreferences = (preferences) => API.put('/notifications/preferences', preferences);
+export const subscribeNotifications = ({ onNotification, onError }) => {
+    const streamUrl = `${BASE_URL}/notifications/stream`;
+    const eventSource = new EventSource(streamUrl, { withCredentials: true });
+
+    eventSource.addEventListener('notification', (event) => {
+        try {
+            const payload = JSON.parse(event.data);
+            onNotification?.(payload);
+        } catch (error) {
+            onError?.(error);
+        }
+    });
+
+    eventSource.addEventListener('error', (event) => {
+        onError?.(event);
+    });
+
+    return () => eventSource.close();
+};
+
 export const getMyTickets = () => fetchFromAPI('/tickets/my');
 export const getAllTickets = () => fetchFromAPI('/tickets');
 export const uploadTicketImages = async (formData) => {

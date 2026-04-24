@@ -46,7 +46,7 @@ public class AnalyticsService {
         return analytics;
     }
 
-    private Map<String, Object> getBookingAnalytics() {
+    public Map<String, Object> getBookingAnalytics() {
         Map<String, Object> bookingStats = new HashMap<>();
         
         List<Booking> allBookings = bookingRepository.findAll();
@@ -90,7 +90,7 @@ public class AnalyticsService {
         return bookingStats;
     }
 
-    private Map<String, Object> getTicketAnalytics() {
+    public Map<String, Object> getTicketAnalytics() {
         Map<String, Object> ticketStats = new HashMap<>();
         
         List<Ticket> allTickets = ticketRepository.findAll();
@@ -139,7 +139,7 @@ public class AnalyticsService {
         return ticketStats;
     }
 
-    private Map<String, Object> getResourceAnalytics() {
+    public Map<String, Object> getResourceAnalytics() {
         Map<String, Object> resourceStats = new HashMap<>();
         
         List<Booking> allBookings = bookingRepository.findAll();

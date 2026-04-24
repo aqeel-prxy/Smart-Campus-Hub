@@ -25,12 +25,10 @@ public class RateLimitConfig {
                 .timeoutDuration(Duration.ofSeconds(1)) // Wait max 1 second
                 .build();
 
-        return RateLimiterRegistry.of(
-                RateLimiterRegistry.Config.builder()
-                        .withRateLimiterConfig("auth", authConfig)
-                        .withRateLimiterConfig("general", generalConfig)
-                        .build()
-        );
+        RateLimiterRegistry registry = RateLimiterRegistry.of(authConfig);
+        registry.rateLimiter("auth", authConfig);
+        registry.rateLimiter("general", generalConfig);
+        return registry;
     }
 
     @Bean

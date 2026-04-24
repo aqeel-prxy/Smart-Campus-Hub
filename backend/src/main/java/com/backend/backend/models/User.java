@@ -11,6 +11,7 @@ public class User {
     private String email;
     private String password;
     private Set<String> roles;
+    private NotificationPreferences notificationPreferences = new NotificationPreferences();
 
     // Constructors
     public User() {}
@@ -30,4 +31,15 @@ public class User {
     public void setPassword(String password) { this.password = password; }
     public Set<String> getRoles() { return roles; }
     public void setRoles(Set<String> roles) { this.roles = roles; }
+
+    public NotificationPreferences getNotificationPreferences() {
+        if (notificationPreferences == null) {
+            notificationPreferences = new NotificationPreferences();
+        }
+        return notificationPreferences;
+    }
+
+    public void setNotificationPreferences(NotificationPreferences notificationPreferences) {
+        this.notificationPreferences = notificationPreferences;
+    }
 }

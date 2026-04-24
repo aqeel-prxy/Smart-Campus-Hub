@@ -28,7 +28,9 @@ jobs:
         SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/dummy_db
         SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: dummy-id
         SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: dummy-secret
-      run: ./backend/mvnw -B clean test --file backend/pom.xml
+      run: |
+        chmod +x ./backend/mvnw
+        ./backend/mvnw -B clean test --file backend/pom.xml
 
 # Job 2: Test the React Frontend & Run Playwright
   build-frontend:

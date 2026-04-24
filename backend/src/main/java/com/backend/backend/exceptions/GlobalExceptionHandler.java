@@ -1,7 +1,7 @@
 package com.backend.backend.exceptions;
 
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
-import jakarta.validation.ConstraintViolationException;
+import javax.validation.ConstraintViolationException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

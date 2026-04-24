@@ -1,5 +1,7 @@
 package com.backend.backend.aspect;
 
+import com.backend.backend.annotation.RateLimitAuth;
+import com.backend.backend.annotation.RateLimitGeneral;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -11,7 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 @Aspect
 @Component
