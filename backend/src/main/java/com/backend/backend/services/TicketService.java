@@ -173,9 +173,18 @@ public class TicketService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required.");
         }
         Object principal = authentication.getPrincipal();
-        if (principal instanceof OidcUser oidcUser) return oidcUser.getEmail();
-        if (principal instanceof UserDetails userDetails) return userDetails.getUsername();
-        if (principal instanceof String username && !"anonymousUser".equals(username)) return username;
+        if (principal instanceof OidcUser) {
+            OidcUser oidcUser = (OidcUser) principal;
+            return oidcUser.getEmail();
+        }
+        if (principal instanceof UserDetails) {
+            UserDetails userDetails = (UserDetails) principal;
+            return userDetails.getUsername();
+        }
+        if (principal instanceof String) {
+            String username = (String) principal;
+            if (!"anonymousUser".equals(username)) return username;
+        }
         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unable to identify current user.");
     }
 

@@ -100,7 +100,7 @@ public class SecurityConfig {
             OidcUser oidcUser = delegate.loadUser(userRequest);
             Set<GrantedAuthority> mappedAuthorities = new HashSet<>(oidcUser.getAuthorities());
 
-            if (adminEmail.equals(oidcUser.getEmail())) {
+            if ("janiduvirunkadev@gmail.com".equals(oidcUser.getEmail())) {
                 mappedAuthorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
             }
             mappedAuthorities.add(new SimpleGrantedAuthority("ROLE_USER"));

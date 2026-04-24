@@ -17,8 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -100,6 +100,20 @@ public class AuthController {
         }
     }
 
+    // Debug endpoint to check users in database
+    @GetMapping("/debug/users")
+    public ResponseEntity<?> debugUsers() {
+        try {
+            List<User> users = userRepository.findAll();
+            return ResponseEntity.ok(Map.of("success", true, "users", users.stream().map(user -> Map.of(
+                "email", user.getEmail(),
+                "roles", user.getRoles()
+            ))));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Failed to fetch users: " + e.getMessage()));
+        }
+    }
+
     // 3. UNIFIED USER CHECK (Handles both Google and Standard Logins)
     @GetMapping("/user")
     public Map<String, Object> getUser(Authentication authentication) {
@@ -112,12 +126,14 @@ public class AuthController {
         String name = "";
 
         // Identify if they logged in with Google
-        if (authentication.getPrincipal() instanceof OidcUser oidcUser) {
+        if (authentication.getPrincipal() instanceof OidcUser) {
+            OidcUser oidcUser = (OidcUser) authentication.getPrincipal();
             email = oidcUser.getEmail();
             name = oidcUser.getFullName();
         }
         // Identify if they logged in with standard email/password
-        else if (authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.User springUser) {
+        else if (authentication.getPrincipal() instanceof org.springframework.security.core.userdetails.User) {
+            org.springframework.security.core.userdetails.User springUser = (org.springframework.security.core.userdetails.User) authentication.getPrincipal();
             email = springUser.getUsername();
             name = email.split("@")[0]; // Use the first part of the email as a display name
         }
