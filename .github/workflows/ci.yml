@@ -59,4 +59,4 @@ jobs:
     - name: Run Playwright Tests
       working-directory: ./frontend
       # Playwright will automatically run 'npm run dev', wait for port 5173, and run tests!
-      run: npx playwright test --passWithNoTests
+      run: npx playwright test
