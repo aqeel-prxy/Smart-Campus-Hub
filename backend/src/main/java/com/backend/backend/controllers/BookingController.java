@@ -41,6 +41,7 @@ public class BookingController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
+    // Retrieve bookings created by the currently authenticated user
     @GetMapping("/my")
     public ResponseEntity<List<Booking>> getMyBookings(Authentication authentication) {
         return ResponseEntity.ok(bookingService.getMyBookings(authentication));
