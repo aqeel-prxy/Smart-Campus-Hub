@@ -7,7 +7,7 @@ import com.backend.backend.dto.TicketStatusUpdateRequest;
 import com.backend.backend.models.Ticket;
 import com.backend.backend.services.TicketService;
 import com.backend.backend.utils.ValidationUtils;
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;

@@ -6,7 +6,7 @@ import com.backend.backend.models.Booking;
 import com.backend.backend.models.BookingStatus;
 import com.backend.backend.services.BookingService;
 import com.backend.backend.services.QRCodeService;
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;

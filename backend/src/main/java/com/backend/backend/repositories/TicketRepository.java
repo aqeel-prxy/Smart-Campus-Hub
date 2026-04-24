@@ -30,9 +30,6 @@ public interface TicketRepository extends MongoRepository<Ticket, String> {
     // Find open tickets by priority (for technician assignment)
     List<Ticket> findByStatusAndPriorityOrderByPriorityAscCreatedAtDesc(TicketStatus status, TicketPriority priority);
     
-    // Find tickets by status and priority (for admin dashboard)
-    List<Ticket> findByStatusAndPriorityOrderByCreatedAtDesc(TicketStatus status, TicketPriority priority);
-    
     // Find tickets created in date range
     List<Ticket> findByCreatedAtBetweenOrderByCreatedAtDesc(Instant startDate, Instant endDate);
     

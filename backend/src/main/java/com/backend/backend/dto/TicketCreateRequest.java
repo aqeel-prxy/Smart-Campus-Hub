@@ -2,8 +2,8 @@ package com.backend.backend.dto;
 
 import com.backend.backend.models.TicketPriority;
 import com.backend.backend.utils.ValidationUtils;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 
 import java.util.ArrayList;
 import java.util.List;
