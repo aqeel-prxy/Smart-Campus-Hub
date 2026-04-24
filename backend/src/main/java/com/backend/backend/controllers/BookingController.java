@@ -47,6 +47,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getMyBookings(authentication));
     }
 
+    // Retrieve all bookings with optional filters (date range and status)
     @GetMapping
     public ResponseEntity<List<Booking>> getAllBookings(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
