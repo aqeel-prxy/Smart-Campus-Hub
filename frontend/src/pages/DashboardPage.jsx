@@ -29,7 +29,11 @@ const DashboardPage = () => {
         checkAuth();
     }, []);
 
-    const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+    const isAdmin = user?.role === 'admin' || user?.roles?.includes('ROLE_ADMIN');
+    
+    // Debug: Log user object to check role detection
+    console.log('User object:', user);
+    console.log('Is admin:', isAdmin);
 
     if (loading) {
         return (
