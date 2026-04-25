@@ -9,6 +9,9 @@ const FacilitiesPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('ALL');
     const [filterStatus, setFilterStatus] = useState('ALL');
+    const [filterLocation, setFilterLocation] = useState('');
+    const [filterMinCapacity, setFilterMinCapacity] = useState('');
+    const [filterMaxCapacity, setFilterMaxCapacity] = useState('');
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
         name: '', type: 'LECTURE_HALL', capacity: '', location: '', availabilityWindows: '', status: 'ACTIVE', imageBase64: ''
@@ -17,11 +20,13 @@ const FacilitiesPage = () => {
 
     const [user, setUser] = useState(null);
     const [authLoading, setAuthLoading] = useState(true); 
+    const isAdmin = user?.roles?.includes('ROLE_ADMIN') || user?.email === 'janiduvirunkadev@gmail.com';
     
     // --- CSV Export/Import States ---
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const fileInputRef = useRef(null);
+    const [adminSummary, setAdminSummary] = useState(null);
 
     // --- Pagination States ---
     const [currentPage, setCurrentPage] = useState(0); 
@@ -56,9 +61,16 @@ const FacilitiesPage = () => {
                     searchTerm: searchTerm,
                     type: filterType,
                     status: filterStatus,
+                    location: filterLocation,
                     page: currentPage,
                     size: pageSize
                 });
+                if (filterMinCapacity !== '') {
+                    queryParams.append('minCapacity', filterMinCapacity);
+                }
+                if (filterMaxCapacity !== '') {
+                    queryParams.append('maxCapacity', filterMaxCapacity);
+                }
                 
                 const data = await fetchFromAPI(`/resources?${queryParams.toString()}`);
                 
@@ -66,6 +78,15 @@ const FacilitiesPage = () => {
                 setResources(data.content || []); 
                 setTotalPages(data.totalPages || 0);
                 setTotalElements(data.totalElements || 0);
+
+                if (isAdmin) {
+                    try {
+                        const summary = await fetchFromAPI('/resources/admin/summary');
+                        setAdminSummary(summary);
+                    } catch (summaryErr) {
+                        console.error('Failed to load admin summary', summaryErr);
+                    }
+                }
                 setLoading(false);
             } catch (err) {
                 console.error("Failed to load resources", err);
@@ -80,14 +101,15 @@ const FacilitiesPage = () => {
 
         return () => clearTimeout(delayDebounceFn);
         
-    }, [searchTerm, filterType, filterStatus, currentPage, pageSize]); // Re-run when page changes
-
-    const isAdmin = user?.roles?.includes('ROLE_ADMIN') || user?.email === 'janiduvirunkadev@gmail.com';
+    }, [searchTerm, filterType, filterStatus, filterLocation, filterMinCapacity, filterMaxCapacity, currentPage, pageSize, isAdmin]); // Re-run when page changes
 
     // Reset to page 0 when user types a new search or changes a filter
     const handleSearchChange = (e) => { setSearchTerm(e.target.value); setCurrentPage(0); };
     const handleTypeChange = (e) => { setFilterType(e.target.value); setCurrentPage(0); };
     const handleStatusChange = (e) => { setFilterStatus(e.target.value); setCurrentPage(0); };
+    const handleLocationChange = (e) => { setFilterLocation(e.target.value); setCurrentPage(0); };
+    const handleMinCapacityChange = (e) => { setFilterMinCapacity(e.target.value); setCurrentPage(0); };
+    const handleMaxCapacityChange = (e) => { setFilterMaxCapacity(e.target.value); setCurrentPage(0); };
 
     const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
@@ -162,6 +184,16 @@ const FacilitiesPage = () => {
         }
     };
 
+    const handleRestore = async (id) => {
+        try {
+            await fetchFromAPI(`/resources/${id}/restore`, { method: 'PATCH' });
+            setResources(resources.map(r => r.id === id ? { ...r, status: 'ACTIVE' } : r));
+        } catch (err) {
+            console.error(err);
+            alert("Failed to restore resource.");
+        }
+    };
+
     const handleExportCSV = async () => {
         setIsExporting(true);
         try {
@@ -169,6 +201,13 @@ const FacilitiesPage = () => {
             exportUrl.searchParams.append('searchTerm', searchTerm);
             exportUrl.searchParams.append('type', filterType);
             exportUrl.searchParams.append('status', filterStatus);
+            exportUrl.searchParams.append('location', filterLocation);
+            if (filterMinCapacity !== '') {
+                exportUrl.searchParams.append('minCapacity', filterMinCapacity);
+            }
+            if (filterMaxCapacity !== '') {
+                exportUrl.searchParams.append('maxCapacity', filterMaxCapacity);
+            }
 
             const response = await fetch(exportUrl.toString(), {
                 method: 'GET',
@@ -290,6 +329,15 @@ const FacilitiesPage = () => {
                     )}
                 </div>
 
+                {isAdmin && adminSummary && (
+                    <div className="mb-6 rounded-xl border border-slate-800 bg-slate-900 p-4">
+                        <p className="text-sm font-semibold text-cyan-300">Admin Summary</p>
+                        <p className="text-sm text-slate-300 mt-1">
+                            Total: {adminSummary.total || 0} | Active: {adminSummary.byStatus?.ACTIVE || 0} | Out of Service: {adminSummary.byStatus?.OUT_OF_SERVICE || 0} | Archived: {adminSummary.byStatus?.ARCHIVED || 0}
+                        </p>
+                    </div>
+                )}
+
                 {/* Form Section */}
                 {isAdmin && (
                     <div className="bg-slate-900 rounded-2xl shadow-sm border border-slate-800 p-6 sm:p-8 mb-8">
@@ -383,6 +431,14 @@ const FacilitiesPage = () => {
                             <input type="text" placeholder="Search by name or location..." value={searchTerm} onChange={handleSearchChange} 
                                 className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors" />
                         </div>
+
+                        <input
+                            type="text"
+                            value={filterLocation}
+                            onChange={handleLocationChange}
+                            placeholder="Filter location (e.g., Block A)"
+                            className="block w-full md:w-56 py-2.5 px-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors"
+                        />
                         
                         <select value={filterType} onChange={handleTypeChange} 
                             className="block w-full md:w-48 py-2.5 px-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors">
@@ -398,7 +454,26 @@ const FacilitiesPage = () => {
                             <option value="ALL">All Statuses</option>
                             <option value="ACTIVE">Active</option>
                             <option value="OUT_OF_SERVICE">Out of Service</option>
+                            <option value="ARCHIVED">Archived</option>
                         </select>
+
+                        <input
+                            type="number"
+                            min="0"
+                            value={filterMinCapacity}
+                            onChange={handleMinCapacityChange}
+                            placeholder="Min capacity"
+                            className="block w-full md:w-40 py-2.5 px-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors"
+                        />
+
+                        <input
+                            type="number"
+                            min="0"
+                            value={filterMaxCapacity}
+                            onChange={handleMaxCapacityChange}
+                            placeholder="Max capacity"
+                            className="block w-full md:w-40 py-2.5 px-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-900 dark:text-white transition-colors"
+                        />
                     </div>
 
                     {/* Table */}
@@ -445,7 +520,11 @@ const FacilitiesPage = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button onClick={() => handleDownloadQR(r)} className="text-purple-600 dark:text-purple-400 hover:text-purple-900 dark:hover:text-purple-300 mx-1 bg-purple-50 dark:bg-purple-900/30 px-3 py-1 rounded-md transition-colors">QR</button>
                                                 <button onClick={() => handleEditClick(r)} className="text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300 mx-1 bg-amber-50 dark:bg-amber-900/30 px-3 py-1 rounded-md transition-colors">Edit</button>
-                                                <button onClick={() => handleDelete(r.id)} className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 ml-1 bg-red-50 dark:bg-red-900/30 px-3 py-1 rounded-md transition-colors">Delete</button>
+                                                {r.status === 'ARCHIVED' ? (
+                                                    <button onClick={() => handleRestore(r.id)} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 ml-1 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 rounded-md transition-colors">Restore</button>
+                                                ) : (
+                                                    <button onClick={() => handleDelete(r.id)} className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 ml-1 bg-red-50 dark:bg-red-900/30 px-3 py-1 rounded-md transition-colors">Archive</button>
+                                                )}
                                             </td>
                                         )}
                                     </tr>

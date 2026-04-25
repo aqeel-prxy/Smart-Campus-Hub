@@ -85,6 +85,7 @@ const oauthStates = new Map();
 const inMemoryBookings = [];
 const inMemoryTickets = [];
 const inMemoryNotifications = [];
+const inMemoryResources = [];
 
 const hashPassword = (password) =>
     crypto.createHash('sha256').update(password).digest('hex');
@@ -132,8 +133,12 @@ const createNotification = async (userId, type, message) => {
 const ResourceSchema = new mongoose.Schema(
     {
         name: { type: String, required: true },
-        status: { type: String, default: 'ACTIVE' },
+        type: { type: String, required: true, default: 'LECTURE_HALL' },
+        capacity: { type: Number, default: 0 },
         location: { type: String, default: '' },
+        availabilityWindows: { type: String, default: '' },
+        status: { type: String, enum: ['ACTIVE', 'OUT_OF_SERVICE', 'ARCHIVED'], default: 'ACTIVE' },
+        imageBase64: { type: String, default: '' },
     },
     { collection: 'resources' }
 );
@@ -355,6 +360,207 @@ const requireAdmin = (req, res, next) => {
     }
     next();
 };
+
+const sanitizeResourcePayload = (body = {}) => ({
+    name: String(body.name || '').trim(),
+    type: String(body.type || '').trim().toUpperCase(),
+    capacity: Number(body.capacity ?? 0),
+    location: String(body.location || '').trim(),
+    availabilityWindows: String(body.availabilityWindows || '').trim(),
+    status: String(body.status || 'ACTIVE').trim().toUpperCase(),
+    imageBase64: typeof body.imageBase64 === 'string' ? body.imageBase64 : '',
+});
+
+const validateResourcePayload = (payload) => {
+    const errors = {};
+    const allowedTypes = ['LECTURE_HALL', 'LAB', 'MEETING_ROOM', 'EQUIPMENT'];
+    const allowedStatuses = ['ACTIVE', 'OUT_OF_SERVICE', 'ARCHIVED'];
+
+    if (!payload.name) errors.name = 'Name is required.';
+    if (!payload.type || !allowedTypes.includes(payload.type)) {
+        errors.type = `Type must be one of: ${allowedTypes.join(', ')}`;
+    }
+    if (!Number.isFinite(payload.capacity) || payload.capacity < 0) {
+        errors.capacity = 'Capacity must be a non-negative number.';
+    }
+    if (!payload.location) errors.location = 'Location is required.';
+    if (!payload.availabilityWindows) errors.availabilityWindows = 'Availability windows are required.';
+    if (!allowedStatuses.includes(payload.status)) {
+        errors.status = `Status must be one of: ${allowedStatuses.join(', ')}`;
+    }
+    return errors;
+};
+
+const filterResources = (resources, query = {}) => {
+    const {
+        searchTerm = '',
+        type = 'ALL',
+        status = 'ALL',
+        location = '',
+        minCapacity,
+        maxCapacity,
+    } = query;
+
+    const normalizedSearch = String(searchTerm).trim().toLowerCase();
+    const normalizedLocation = String(location).trim().toLowerCase();
+    const normalizedType = String(type).trim().toUpperCase();
+    const normalizedStatus = String(status).trim().toUpperCase();
+    const parsedMin = minCapacity !== undefined && minCapacity !== '' ? Number(minCapacity) : null;
+    const parsedMax = maxCapacity !== undefined && maxCapacity !== '' ? Number(maxCapacity) : null;
+
+    return resources.filter((resource) => {
+        const name = String(resource.name || '').toLowerCase();
+        const resourceLocation = String(resource.location || '').toLowerCase();
+        const resourceType = String(resource.type || '').toUpperCase();
+        const resourceStatus = String(resource.status || 'ACTIVE').toUpperCase();
+        const resourceCapacity = Number(resource.capacity || 0);
+
+        if (normalizedSearch && !name.includes(normalizedSearch) && !resourceLocation.includes(normalizedSearch)) {
+            return false;
+        }
+        if (normalizedType !== 'ALL' && resourceType !== normalizedType) return false;
+        if (normalizedStatus !== 'ALL') {
+            if (resourceStatus !== normalizedStatus) return false;
+        } else if (resourceStatus === 'ARCHIVED') {
+            return false;
+        }
+        if (normalizedLocation && !resourceLocation.includes(normalizedLocation)) return false;
+        if (parsedMin !== null && Number.isFinite(parsedMin) && resourceCapacity < parsedMin) return false;
+        if (parsedMax !== null && Number.isFinite(parsedMax) && resourceCapacity > parsedMax) return false;
+
+        return true;
+    });
+};
+
+// Resources CRUD (Module A)
+app.get('/api/resources', async (req, res) => {
+    const page = Math.max(Number(req.query.page || 0), 0);
+    const size = Math.max(Number(req.query.size || 10), 1);
+
+    if (dbConnected) {
+        const resources = await Resource.find().lean();
+        const filtered = filterResources(resources, req.query);
+        const start = page * size;
+        const end = start + size;
+        const content = filtered.slice(start, end);
+
+        return res.json({
+            content,
+            totalElements: filtered.length,
+            totalPages: Math.max(1, Math.ceil(filtered.length / size)),
+            size,
+            number: page,
+        });
+    }
+
+    const filtered = filterResources(inMemoryResources, req.query);
+    const start = page * size;
+    const end = start + size;
+    const content = filtered.slice(start, end);
+    return res.json({
+        content,
+        totalElements: filtered.length,
+        totalPages: Math.max(1, Math.ceil(filtered.length / size)),
+        size,
+        number: page,
+    });
+});
+
+app.get('/api/resources/admin/summary', requireAuth, requireAdmin, async (req, res) => {
+    const resources = dbConnected ? await Resource.find().lean() : inMemoryResources;
+    const summary = resources.reduce(
+        (acc, resource) => {
+            const status = (resource.status || 'ACTIVE').toUpperCase();
+            const type = (resource.type || 'UNKNOWN').toUpperCase();
+            acc.total += 1;
+            acc.byStatus[status] = (acc.byStatus[status] || 0) + 1;
+            acc.byType[type] = (acc.byType[type] || 0) + 1;
+            return acc;
+        },
+        { total: 0, byStatus: {}, byType: {} }
+    );
+    return res.json(summary);
+});
+
+app.get('/api/resources/:id', async (req, res) => {
+    if (dbConnected) {
+        const resource = await Resource.findById(req.params.id).lean();
+        if (!resource) return res.status(404).json({ message: 'Resource not found.' });
+        return res.json(resource);
+    }
+    const resource = inMemoryResources.find((r) => r.id === req.params.id);
+    if (!resource) return res.status(404).json({ message: 'Resource not found.' });
+    return res.json(resource);
+});
+
+app.post('/api/resources', requireAuth, requireAdmin, async (req, res) => {
+    const payload = sanitizeResourcePayload(req.body);
+    const errors = validateResourcePayload(payload);
+    if (Object.keys(errors).length > 0) {
+        return res.status(400).json({ errors });
+    }
+
+    if (dbConnected) {
+        const saved = await Resource.create(payload);
+        return res.status(201).json(saved);
+    }
+    const saved = { id: crypto.randomUUID(), ...payload };
+    inMemoryResources.push(saved);
+    return res.status(201).json(saved);
+});
+
+app.put('/api/resources/:id', requireAuth, requireAdmin, async (req, res) => {
+    const payload = sanitizeResourcePayload(req.body);
+    const errors = validateResourcePayload(payload);
+    if (Object.keys(errors).length > 0) {
+        return res.status(400).json({ errors });
+    }
+
+    if (dbConnected) {
+        const updated = await Resource.findByIdAndUpdate(req.params.id, payload, { new: true }).lean();
+        if (!updated) return res.status(404).json({ message: 'Resource not found.' });
+        return res.json(updated);
+    }
+    const index = inMemoryResources.findIndex((r) => r.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Resource not found.' });
+    inMemoryResources[index] = { ...inMemoryResources[index], ...payload };
+    return res.json(inMemoryResources[index]);
+});
+
+app.delete('/api/resources/:id', requireAuth, requireAdmin, async (req, res) => {
+    if (dbConnected) {
+        const archived = await Resource.findByIdAndUpdate(
+            req.params.id,
+            { status: 'ARCHIVED' },
+            { new: true }
+        ).lean();
+        if (!archived) return res.status(404).json({ message: 'Resource not found.' });
+        return res.json({ success: true, message: 'Resource archived safely.', resource: archived });
+    }
+
+    const index = inMemoryResources.findIndex((r) => r.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Resource not found.' });
+    inMemoryResources[index] = { ...inMemoryResources[index], status: 'ARCHIVED' };
+    return res.json({ success: true, message: 'Resource archived safely.', resource: inMemoryResources[index] });
+});
+
+// New admin feature: restore archived resources
+app.patch('/api/resources/:id/restore', requireAuth, requireAdmin, async (req, res) => {
+    if (dbConnected) {
+        const restored = await Resource.findByIdAndUpdate(
+            req.params.id,
+            { status: 'ACTIVE' },
+            { new: true }
+        ).lean();
+        if (!restored) return res.status(404).json({ message: 'Resource not found.' });
+        return res.json({ success: true, message: 'Resource restored to ACTIVE.', resource: restored });
+    }
+
+    const index = inMemoryResources.findIndex((r) => r.id === req.params.id);
+    if (index === -1) return res.status(404).json({ message: 'Resource not found.' });
+    inMemoryResources[index] = { ...inMemoryResources[index], status: 'ACTIVE' };
+    return res.json({ success: true, message: 'Resource restored to ACTIVE.', resource: inMemoryResources[index] });
+});
 
 const hasOverlap = (existing, input) =>
     existing.resourceId === input.resourceId &&
