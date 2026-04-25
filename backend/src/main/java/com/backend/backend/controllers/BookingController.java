@@ -69,6 +69,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.decideBooking(id, decision, request.getReason(), authentication));
     }
 
+    // Cancel an existing booking by ID
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<Booking> cancelBooking(@PathVariable String id, Authentication authentication) {
         return ResponseEntity.ok(bookingService.cancelBooking(id, authentication));
@@ -80,6 +81,7 @@ public class BookingController {
         return ResponseEntity.ok(Map.of("message", "Booking cancelled and retained for audit trail."));
     }
 
+    // Generate QR code for booking identification
     @GetMapping("/{id}/qrcode")
     public ResponseEntity<byte[]> generateQRCode(@PathVariable String id, Authentication authentication) {
         try {
