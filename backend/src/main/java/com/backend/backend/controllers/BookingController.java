@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+// REST controller for managing booking operations
 @RestController
 @RequestMapping("/api/bookings")
 public class BookingController {
@@ -33,17 +34,20 @@ public class BookingController {
         this.qrCodeService = qrCodeService;
     }
 
+    // Create a new booking request
     @PostMapping
     public ResponseEntity<Booking> createBooking(@Valid @RequestBody BookingCreateRequest request, Authentication authentication) {
         Booking saved = bookingService.createBooking(request, authentication);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
+    // Retrieve bookings created by the currently authenticated user
     @GetMapping("/my")
     public ResponseEntity<List<Booking>> getMyBookings(Authentication authentication) {
         return ResponseEntity.ok(bookingService.getMyBookings(authentication));
     }
 
+    // Retrieve all bookings with optional filters (date range and status)
     @GetMapping
     public ResponseEntity<List<Booking>> getAllBookings(
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
@@ -54,6 +58,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getAllBookings(fromDate, toDate, status, authentication));
     }
 
+    // Admin can approve or reject a booking with a reason
     @PatchMapping("/{id}/decision")
     public ResponseEntity<Booking> decideBooking(
         @PathVariable String id,
@@ -64,6 +69,7 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.decideBooking(id, decision, request.getReason(), authentication));
     }
 
+    // Cancel an existing booking by ID
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<Booking> cancelBooking(@PathVariable String id, Authentication authentication) {
         return ResponseEntity.ok(bookingService.cancelBooking(id, authentication));
@@ -75,6 +81,7 @@ public class BookingController {
         return ResponseEntity.ok(Map.of("message", "Booking cancelled and retained for audit trail."));
     }
 
+    // Generate QR code for booking identification
     @GetMapping("/{id}/qrcode")
     public ResponseEntity<byte[]> generateQRCode(@PathVariable String id, Authentication authentication) {
         try {
