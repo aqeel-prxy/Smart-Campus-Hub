@@ -67,7 +67,15 @@ public class ResourceControllerTest {
         r1.setId("1");
         
         // Tell our mock service what to return when the controller asks for data
-       when(resourceService.searchAndFilterResources(anyString(), anyString(), anyString(), any(Pageable.class)))
+       when(resourceService.searchAndFilterResources(
+               anyString(),
+               anyString(),
+               anyString(),
+               anyString(),
+               any(),
+               any(),
+               any(Pageable.class)
+       ))
                 .thenReturn(new PageImpl<>(Arrays.asList(r1)));
 
         // 2 & 3. Act & Assert: Simulate a GET request and check the results
@@ -76,8 +84,8 @@ public class ResourceControllerTest {
                 .param("type", "ALL")
                 .param("status", "ALL"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].name").value("Main Hall"))
-                .andExpect(jsonPath("$[0].type").value("LECTURE_HALL"));
+                .andExpect(jsonPath("$.content[0].name").value("Main Hall"))
+                .andExpect(jsonPath("$.content[0].type").value("LECTURE_HALL"));
     }
 
     @Test

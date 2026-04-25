@@ -49,6 +49,9 @@ public class ResourceController {
             @RequestParam(required = false, defaultValue = "") String searchTerm,
             @RequestParam(required = false, defaultValue = "ALL") String type,
             @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false, defaultValue = "") String location,
+            @RequestParam(required = false) Integer minCapacity,
+            @RequestParam(required = false) Integer maxCapacity,
             @RequestParam(defaultValue = "0") int page, // NEW: Which page they want (starts at 0)
             @RequestParam(defaultValue = "10") int size // NEW: How many items per page
     ) {
@@ -57,7 +60,15 @@ public class ResourceController {
             Pageable pageable = PageRequest.of(page, size);
             
             // Pass the search terms AND the pageable object to the service
-            Page<Resource> resources = resourceService.searchAndFilterResources(searchTerm, type, status, pageable);
+            Page<Resource> resources = resourceService.searchAndFilterResources(
+                searchTerm,
+                type,
+                status,
+                location,
+                minCapacity,
+                maxCapacity,
+                pageable
+            );
             
             return ResponseEntity.ok(resources);
         } catch (Exception e) {
@@ -129,6 +140,9 @@ public class ResourceController {
             @RequestParam(required = false, defaultValue = "") String searchTerm,
             @RequestParam(required = false, defaultValue = "ALL") String type,
             @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false, defaultValue = "") String location,
+            @RequestParam(required = false) Integer minCapacity,
+            @RequestParam(required = false) Integer maxCapacity,
             HttpServletResponse response) throws IOException {
 
         response.setContentType("text/csv");
@@ -138,7 +152,15 @@ public class ResourceController {
         writer.println("Name,Type,Capacity,Location,AvailabilityWindows,Status");
 
         // 1 & 2. Call the DB directly. Pageable.unpaged() grabs ALL matches, ignoring the 10-per-page limit.
-        Page<Resource> exportPage = resourceService.searchAndFilterResources(searchTerm, type, status, Pageable.unpaged());
+        Page<Resource> exportPage = resourceService.searchAndFilterResources(
+            searchTerm,
+            type,
+            status,
+            location,
+            minCapacity,
+            maxCapacity,
+            Pageable.unpaged()
+        );
         
         // Extract the raw List of data from the Page wrapper
         List<Resource> resourcesToExport = exportPage.getContent();
@@ -146,13 +168,13 @@ public class ResourceController {
         // 3. Write the results to the CSV
         for (Resource res : resourcesToExport) {
             String name = res.getName() != null ? res.getName().replace(",", " ") : "";
-            String location = res.getLocation() != null ? res.getLocation().replace(",", " ") : "";
+            String sanitizedLocation = res.getLocation() != null ? res.getLocation().replace(",", " ") : "";
             
             writer.println(
                 name + "," +
                 res.getType() + "," +
                 res.getCapacity() + "," +
-                location + "," +
+                sanitizedLocation + "," +
                 res.getAvailabilityWindows() + "," +
                 res.getStatus()
             );
