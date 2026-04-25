@@ -114,7 +114,7 @@ public class BookingService {
 
         return bookingRepository.findByBookingDateBetweenOrderByBookingDateDescStartTimeDesc(from, to).stream()
             .filter(booking -> status == null || booking.getStatus() == status)
-            .toList();
+            .collect(java.util.stream.Collectors.toList());
     }
 
     public Booking decideBooking(String bookingId, BookingStatus decision, String reason, Authentication authentication) {
@@ -142,7 +142,7 @@ public class BookingService {
                 )
                 .stream()
                 .filter(existing -> !existing.getId().equals(booking.getId()))
-                .toList()
+                .collect(java.util.stream.Collectors.toList())
                 .isEmpty();
 
             if (hasConflict) {

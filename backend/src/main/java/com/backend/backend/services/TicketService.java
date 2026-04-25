@@ -91,7 +91,7 @@ public class TicketService {
         requireAdmin(authentication);
         return ticketRepository.findAll().stream()
             .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-            .toList();
+            .collect(java.util.stream.Collectors.toList());
     }
 
     public Ticket updateStatus(String ticketId, TicketStatusUpdateRequest request, Authentication authentication) {
