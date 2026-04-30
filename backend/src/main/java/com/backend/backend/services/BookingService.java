@@ -53,15 +53,16 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Resource is not available for booking.");
         }
 
-        boolean hasConflict = !bookingRepository
-            .findByResourceIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                resource.getId(),
-                request.getBookingDate(),
-                Set.of(BookingStatus.PENDING, BookingStatus.APPROVED),
-                request.getEndTime(),
-                request.getStartTime()
-            )
-            .isEmpty();
+        List<Booking> existingBookings = bookingRepository.findByResourceIdAndBookingDateAndStatusIn(
+            resource.getId(),
+            request.getBookingDate(),
+            Set.of(BookingStatus.PENDING, BookingStatus.APPROVED)
+        );
+
+        boolean hasConflict = existingBookings.stream().anyMatch(existing -> 
+            existing.getStartTime().isBefore(request.getEndTime()) &&
+            existing.getEndTime().isAfter(request.getStartTime())
+        );
 
         if (hasConflict) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking conflict detected for this resource and time window.");
@@ -132,18 +133,18 @@ public class BookingService {
         }
 
         if (decision == BookingStatus.APPROVED) {
-            boolean hasConflict = !bookingRepository
-                .findByResourceIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                    booking.getResourceId(),
-                    booking.getBookingDate(),
-                    Set.of(BookingStatus.APPROVED),
-                    booking.getEndTime(),
-                    booking.getStartTime()
-                )
-                .stream()
+            List<Booking> existingBookings = bookingRepository.findByResourceIdAndBookingDateAndStatusIn(
+                booking.getResourceId(),
+                booking.getBookingDate(),
+                Set.of(BookingStatus.APPROVED)
+            );
+
+            boolean hasConflict = existingBookings.stream()
                 .filter(existing -> !existing.getId().equals(booking.getId()))
-                .collect(java.util.stream.Collectors.toList())
-                .isEmpty();
+                .anyMatch(existing -> 
+                    existing.getStartTime().isBefore(booking.getEndTime()) &&
+                    existing.getEndTime().isAfter(booking.getStartTime())
+                );
 
             if (hasConflict) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot approve due to time conflict with an existing approved booking.");

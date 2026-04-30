@@ -111,6 +111,11 @@ const oauthStates = new Map();
 const inMemoryBookings = [];
 const inMemoryTickets = [];
 const inMemoryNotifications = [];
+const inMemoryResources = [
+    { id: 'res-1', name: 'Conference Room A', location: 'Building 1', status: 'ACTIVE' },
+    { id: 'res-2', name: 'Projector', location: 'IT Department', status: 'ACTIVE' },
+    { id: 'res-3', name: 'Auditorium', location: 'Main Campus', status: 'ACTIVE' }
+];
 
 const hashPassword = (password) =>
     crypto.createHash('sha256').update(password).digest('hex');
@@ -404,13 +409,27 @@ const hasOverlap = (existing, input) =>
 
 const listBookings = async () => {
     if (dbConnected) {
-        return Booking.find().sort({ bookingDate: -1, startTime: -1 }).lean();
+        const bookings = await Booking.find().sort({ bookingDate: -1, startTime: -1 }).lean();
+        return bookings.map(b => ({ ...b, id: b._id.toString() }));
     }
     return inMemoryBookings.slice().sort((a, b) => {
         if (a.bookingDate === b.bookingDate) return b.startTime.localeCompare(a.startTime);
         return b.bookingDate.localeCompare(a.bookingDate);
     });
 };
+
+app.get('/api/resources', requireAuth, async (req, res) => {
+    if (dbConnected) {
+        try {
+            const resources = await Resource.find().lean();
+            return res.json({ content: resources.map(r => ({ ...r, id: r._id.toString() })) });
+        } catch (error) {
+            console.error('Error fetching resources:', error);
+            return res.status(500).json({ message: 'Internal server error.' });
+        }
+    }
+    return res.json({ content: inMemoryResources });
+});
 
 app.post('/api/bookings', requireAuth, async (req, res) => {
     try {
@@ -425,6 +444,13 @@ app.post('/api/bookings', requireAuth, async (req, res) => {
         let resourceName = 'Resource';
         if (dbConnected) {
             const resource = await Resource.findById(resourceId).lean();
+            if (!resource) return res.status(404).json({ message: 'Resource not found.' });
+            if (['OUT_OF_SERVICE', 'ARCHIVED'].includes(resource.status)) {
+                return res.status(400).json({ message: 'Resource is not available for booking.' });
+            }
+            resourceName = resource.name || 'Resource';
+        } else {
+            const resource = inMemoryResources.find(r => r.id === resourceId);
             if (!resource) return res.status(404).json({ message: 'Resource not found.' });
             if (['OUT_OF_SERVICE', 'ARCHIVED'].includes(resource.status)) {
                 return res.status(400).json({ message: 'Resource is not available for booking.' });
@@ -456,7 +482,7 @@ app.post('/api/bookings', requireAuth, async (req, res) => {
         if (dbConnected) {
             const saved = await Booking.create(bookingPayload);
             await createNotification(req.user.email, 'BOOKING_SUBMITTED', `Booking request submitted for ${resourceName} on ${bookingDate}.`);
-            return res.status(201).json(saved);
+            return res.status(201).json({ ...saved.toObject(), id: saved._id.toString() });
         }
 
         const saved = { id: crypto.randomUUID(), ...bookingPayload, createdAt: new Date().toISOString() };

@@ -103,6 +103,11 @@ export const cancelBooking = (id) =>
         method: 'PATCH',
     });
 
+export const deleteBooking = (id) =>
+    fetchFromAPI(`/bookings/${id}`, {
+        method: 'DELETE',
+    });
+
 export const fetchFromAPI = async (endpoint, options = {}) => {
     try {
         const response = await fetch(`${BASE_URL}${endpoint}`, {
